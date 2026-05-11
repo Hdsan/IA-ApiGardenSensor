@@ -56,7 +56,7 @@ async def learn(req: LearnData):
     reward = 10 - (erro * 0.5)
     if req.moisture_after > (req.target_raw + 10):
         reward -= 5
-
+    print(f"Recompensa calculada: {reward:.2f} (Erro: {erro:.2f}%)")
     agent.learn(state_before, req.action_idx, reward, state_after)
 
     # REGISTRO DE APRENDIZADO
