@@ -39,7 +39,7 @@ async def decide(req: DecideData):
     v_final = round(req.volume_ab * factor, 3)
     
     # REGISTRO DE DECISÃO
-    log_msg = (f"DECISÃO: Solo {req.moisture}% às {req.hour}h | "
+    log_msg = (f"DECISÃO: Solo {req.moisture}L às {req.hour}h, | "
                f"Clima: {req.temp}°C, {req.air_humidity}% ur | "
                f"Ação: {idx} (fator {factor}) | Vol Final: {v_final}L")
     logger(log_msg)
@@ -60,8 +60,8 @@ async def learn(req: LearnData):
     agent.learn(state_before, req.action_idx, reward, state_after)
 
     # REGISTRO DE APRENDIZADO
-    log_msg = (f"APRENDIZADO: Ação {req.action_idx} resultou em {req.moisture_after}% "
-               f"(Alvo: {req.target_raw}%) | Recompensa: {reward:.2f}")
+    log_msg = (f"APRENDIZADO: Ação {req.action_idx}, add {req.volume_applied}L resultou em {req.moisture_after}L "
+               f"(Alvo: {req.target_raw}L) | Recompensa: {reward:.2f}")
     logger(log_msg)
     
     return {"status": "learned", "reward": reward}
