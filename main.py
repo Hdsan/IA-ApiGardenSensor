@@ -2,6 +2,9 @@ import datetime
 from fastapi import FastAPI
 from pydantic import BaseModel
 from brain import QLearningAgent
+import os
+import numpy as np
+from fastapi import HTTPException
 
 app = FastAPI()
 agent = QLearningAgent()
@@ -66,3 +69,70 @@ async def learn(req: LearnData):
     logger(log_msg)
     
     return {"status": "learned", "reward": reward}
+
+@app.delete("/reset-agent")
+async def reset_agent():
+    try:
+        # Em vez de agent.q_table = {}, use o método do agente
+        agent.reset_memory() 
+        
+        log_msg = "SISTEMA: Memória da IA resetada."
+        logger(log_msg)
+        return {"status": "success", "message": log_msg}
+
+    except Exception as e:
+        logger(f"ERRO ao resetar agente: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/dashboard")
+async def get_ia_dashboard():
+    try:
+        qt = agent.q_table
+        total_cells = qt.size
+        
+        # 1. Filtro de células exploradas (onde o valor não é zero)
+        learned_mask = qt != 0
+        learned_cells = np.count_nonzero(learned_mask)
+        coverage = (learned_cells / total_cells) * 100
+
+        # 2. Preferência de Ações (Quais multiplicadores a IA mais valoriza)
+        # Fazemos a média dos valores Q para cada uma das 5 ações
+        avg_q_per_action = np.mean(qt, axis=(0, 1, 2, 3))
+        action_report = {
+            f"Ação {i} (x{agent.actions[i]})": round(float(avg_q_per_action[i]), 6)
+            for i in range(len(agent.actions))
+        }
+
+        # 3. Distribuição de Conhecimento por Turno (Manhã vs Noite)
+        # q_shape: (Umidade, Hora, Temp, Ar, Ações) -> Hora está no índice 1
+        knowledge_per_hour = np.sum(np.abs(qt), axis=(0, 2, 3, 4))
+        morning_knowledge = float(np.sum(knowledge_per_hour[6:12])) # 6h às 11h
+        afternoon_knowledge = float(np.sum(knowledge_per_hour[12:18])) # 12h às 17h
+        night_knowledge = float(np.sum(knowledge_per_hour[18:24]) + np.sum(knowledge_per_hour[0:6]))
+
+        # 4. Valores Extremos (Para detectar se a recompensa está explodindo)
+        max_q = float(np.max(qt))
+        min_q = float(np.min(qt))
+
+        return {
+            "status_geral": {
+                "cobertura_da_memoria": f"{coverage:.4f}%",
+                "total_conexoes_aprendidas": int(learned_cells),
+                "volume_total_q": float(np.sum(np.abs(qt)))
+            },
+            "preferencia_de_algoritmo": action_report,
+            "foco_do_aprendizado": {
+                "manha": round(morning_knowledge, 2),
+                "tarde": round(afternoon_knowledge, 2),
+                "noite": round(night_knowledge, 2),
+                "turno_mais_treinado": "Manhã" if morning_knowledge > afternoon_knowledge else "Tarde/Noite"
+            },
+            "estabilidade": {
+                "maior_recompensa_acumulada": round(max_q, 4),
+                "menor_recompensa_acumulada": round(min_q, 4),
+                "media_q_global": float(np.mean(qt[learned_mask])) if learned_cells > 0 else 0
+            }
+        }
+    except Exception as e:
+        logger(f"ERRO ao gerar dashboard: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
