@@ -48,6 +48,7 @@ async def decide(req: DecideData):
 
 @app.post("/learn")
 async def learn(req: LearnData):
+    print(req)
     state_before = agent.get_state(req.moisture_before, req.hour_before, req.temp, req.air_humidity)
     state_after = agent.get_state(req.moisture_after, req.hour_after, req.temp, req.air_humidity)
 
