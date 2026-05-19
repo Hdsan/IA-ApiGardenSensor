@@ -16,6 +16,21 @@ def logger(message: str):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(f"[{timestamp}] {message}\n")
+        
+def compute_reward(moisture_after, target_raw):
+    error = moisture_after - target_raw
+
+    underweight = 2.0
+    overweight = 1.0
+
+    under = max(-error, 0)
+    over = max(error, 0)
+
+    cost = underweight * (under ** 2) + overweight * (over ** 2)
+
+    reward = 10 - cost
+
+    return float(np.clip(reward, -10, 10))
 
 # Modelos Pydantic (mantidos conforme a última versão)
 class DecideData(BaseModel):
@@ -55,12 +70,10 @@ async def learn(req: LearnData):
     state_before = agent.get_state(req.moisture_before, req.hour_before, req.temp, req.air_humidity)
     state_after = agent.get_state(req.moisture_after, req.hour_after, req.temp, req.air_humidity)
 
-    # Cálculo da Recompensa
-    erro = abs(req.target_raw - req.moisture_after)
-    reward = 10 - (erro * 0.5)
-    if req.moisture_after > (req.target_raw + 10):
-        reward -= 5
-    print(f"Recompensa calculada: {reward:.2f} (Erro: {erro:.2f}%)")
+    erro = req.moisture_after - req.target_raw
+    reward = compute_reward(req.moisture_after, req.target_raw)
+
+    print(f"Reward: {reward:.2f} | Erro: {erro:.2f}")
     agent.learn(state_before, req.action_idx, reward, state_after)
 
     # REGISTRO DE APRENDIZADO
@@ -91,7 +104,7 @@ async def get_ia_dashboard():
         total_cells = qt.size
         
         # 1. Filtro de células exploradas (onde o valor não é zero)
-        learned_mask = qt != 0
+        learned_mask = np.abs(qt) > 1e-3
         learned_cells = np.count_nonzero(learned_mask)
         coverage = (learned_cells / total_cells) * 100
 
