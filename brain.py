@@ -6,7 +6,7 @@ class QLearningAgent:
     def __init__(self, filename="q_table.npy"):
         self.filename = filename
         
-        self.q_shape = (11, 24, 6, 6, 5)
+        self.q_shape = (11, 2, 6, 6, 5)
         self.actions = [0.8, 0.9, 1.0, 1.1, 1.2]
         self.learning_rate = 0.1
         self.discount_factor = 0.9
@@ -30,7 +30,7 @@ class QLearningAgent:
         m_idx = int(np.clip(moisture // 5, 0, 10))
         t_idx = int(np.clip(temp // 5, 0, 5))
         ah_idx = int(np.clip(air_h // 10, 0, 5))
-        h_idx = int(np.clip(hour, 0, 23))
+        h_idx = 0 if hour == 9 else 1
 
         return m_idx, h_idx, t_idx, ah_idx
     
